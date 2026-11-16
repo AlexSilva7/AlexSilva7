@@ -150,6 +150,18 @@
   .switch i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 12px; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
   .switch.on { background: var(--accent); }
   .switch.on i { transform: translateX(20px); }
+  .ed-item { display: flex; gap: 10px; align-items: center; background: var(--bg-elev); border-radius: 14px; padding: 8px; box-shadow: var(--shadow); }
+  .ed-item .fig-box { width: 72px; height: 54px; }
+  .ed-item b { font-size: 13.5px; display: block; line-height: 1.25; }
+  .ed-item span { font-size: 11.5px; color: var(--ink-soft); }
+  .ed-ctrl { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+  .ed-ctrl button, .ed-btns button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-sunk); font-weight: 800; font-size: 14px; cursor: pointer; padding: 0; }
+  .ed-ctrl span { font-weight: 700; color: var(--ink); min-width: 62px; text-align: center; }
+  .ed-btns { display: grid; grid-template-columns: 30px 30px; gap: 4px; }
+  .ed-btns button:disabled { opacity: .3; }
+  .ed-btns .rm { color: var(--warn); }
+  .ed-link { display: block; width: 100%; margin: 4px 0; border: 1px dashed var(--line); background: transparent; border-radius: 10px; padding: 6px; font-size: 12px; font-weight: 700; color: var(--ink-faint); cursor: pointer; }
+  .ed-link.on { border: 1.5px solid var(--super); color: var(--super); }
   /* Exercícios */
   .lib-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
   .lib-item { background: var(--bg-elev); border-radius: 14px; padding: 8px; box-shadow: var(--shadow); cursor: pointer; }

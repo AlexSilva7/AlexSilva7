@@ -494,6 +494,66 @@
       { x: 76, y: 116, t: -90, a1: { p: [66, 101], b: -1 }, l1: { p: [124, 135], b: -1 } }
     ]
   };
+  // ----- bíceps extras -----
+  A.rosca_alternada = {
+    f: 1, hl: ["uarm"], tool: { type: "db", o: "v" },
+    frames: [S({ a1: [92, 88], a2: [92, -70], l1: [90, 90] }), S({ a1: [92, -70], a2: [92, 88], l1: [90, 90] })]
+  };
+  A.rosca_scott = {
+    f: 1, hl: ["uarm"], tool: { type: "bb" },
+    props: P.rect(64, 102, 34, 6) + P.seg([80, 108], [80, 135], 4) + P.seg([88, 70], [106, 85], 7) + P.seg([100, 86], [100, 135], 3),
+    frames: [
+      { x: 80, y: 100, t: -85, a1: [40, 55], l1: [0, 90] },
+      { x: 80, y: 100, t: -85, a1: [40, -95], l1: [0, 90] }
+    ]
+  };
+  A.rosca_concentrada = {
+    f: 1, hl: ["uarm"], tool: { type: "db", o: "v", one: true },
+    props: P.rect(56, 102, 40, 6) + P.seg([76, 108], [76, 135], 4),
+    frames: [
+      { x: 80, y: 100, t: -62, a1: [96, 92], a2: [62, 20], l1: [0, 90], l2: [8, 96] },
+      { x: 80, y: 100, t: -62, a1: [96, -78], a2: [62, 20], l1: [0, 90], l2: [8, 96] }
+    ]
+  };
+  A.rosca_cabo = {
+    f: 1, hl: ["uarm"], tool: { type: "cable", anchor: [134, 128] },
+    props: P.tower(140, 40) + P.pulley(134, 128),
+    frames: [S({ a1: [92, 80], l1: { p: [104, 135], b: -1 }, l2: { p: [92, 135], b: -1 } }), S({ a1: [92, -70], l1: { p: [104, 135], b: -1 }, l2: { p: [92, 135], b: -1 } })]
+  };
+  // ----- tríceps extras -----
+  A.triceps_testa = {
+    vb: [18, 25, 150, 112.5],
+    f: 1, hl: ["tri"], tool: { type: "bb" },
+    props: P.bench(40, 128, 100),
+    frames: [
+      { x: 112, y: 96, t: 180, a1: [-100, -95], l1: lieLegs },
+      { x: 112, y: 96, t: 180, a1: [-100, -192], l1: lieLegs }
+    ]
+  };
+  A.triceps_polia_barra = {
+    f: 1, hl: ["tri"], tool: { type: "cable", anchor: [132, 8] },
+    props: P.tower(138) + P.pulley(132, 8),
+    frames: [
+      S({ t: -86, a1: [92, -40], l1: [90, 90] }),
+      S({ t: -86, a1: [92, 90], l1: [90, 90] })
+    ]
+  };
+  A.triceps_coice = {
+    f: 1, hl: ["tri"], tool: { type: "db", o: "c" },
+    frames: [
+      { x: 85, y: 74, t: -20, a1: [168, 90], l1: { p: [100, 135], b: -1 } },
+      { x: 85, y: 74, t: -20, a1: [168, 172], l1: { p: [100, 135], b: -1 } }
+    ]
+  };
+  A.supino_fechado = {
+    vb: [22, 25, 150, 112.5],
+    f: 1, hl: ["tri", "chest"], tool: { type: "bb" },
+    props: P.bench(40, 128, 100) + P.seg([50, 100], [50, 40], 3),
+    frames: [
+      { x: 112, y: 96, t: 180, a1: [30, -88, 0.78, 1], l1: lieLegs },
+      { x: 112, y: 96, t: 180, a1: [-80, -90, 1, 1], l1: lieLegs }
+    ]
+  };
   var sqLegs = { p: [100, 135], b: -1 };
   A.agachamento = {
     f: 1, hl: ["thigh", "glute"], tool: { type: "bb" },

@@ -6,7 +6,7 @@
 
   /* ---------------- Estado ---------------- */
   function defaults() {
-    return { goal: "queima", level: "ini", cardioGoal: 3, theme: "auto", history: [], logs: {}, meas: [], swaps: {}, cardio: [], draft: null, sel: null, soloDay: null };
+    return { goal: "queima", level: "ini", cardioGoal: 3, theme: "auto", history: [], logs: {}, meas: [], swaps: {}, cardio: [], draft: null, sel: null, soloDay: null, custom: {} };
   }
   var S = (function () {
     try {
@@ -47,7 +47,25 @@
 
   /* ---------------- Programa ---------------- */
   function goal() { return DB.GOALS[S.goal] || DB.GOALS.queima; }
+  function slots(l) { return (S.custom && S.custom[l]) || DB.PROGRAM[l].slots; }
+  function isCustom(l) { return !!(S.custom && S.custom[l]); }
+  function ensureCustom(l) {
+    if (!isCustom(l)) {
+      S.custom[l] = DB.PROGRAM[l].slots.map(function (sl, i) { return { ex: slotEx(l, i), r: sl.r, ss: sl.ss || null, hiit: !!sl.hiit }; });
+      Object.keys(S.swaps).forEach(function (k) { if (k.charAt(0) === l) delete S.swaps[k]; });
+    }
+    return S.custom[l];
+  }
+  function normalize(l) {
+    var a = S.custom[l];
+    a.forEach(function (sl, i) {
+      if (!sl.ss) return;
+      var prev = a[i - 1], next = a[i + 1];
+      if (!(prev && prev.ss === sl.ss) && !(next && next.ss === sl.ss)) sl.ss = null;
+    });
+  }
   function slotEx(letter, i) {
+    if (isCustom(letter)) return S.custom[letter][i].ex;
     var sl = DB.PROGRAM[letter].slots[i];
     var sw = S.swaps[letter + i];
     if (sw && BY[sw]) return sw;
@@ -56,22 +74,23 @@
     return sl.ex;
   }
   function presc(letter, i) {
-    var sl = DB.PROGRAM[letter].slots[i];
+    var sl = slots(letter)[i];
     var ex = BY[slotEx(letter, i)];
     var p = goal()[sl.r];
     var o = { s: p.s, lo: p.lo, hi: p.hi, rest: p.rest, time: !!ex.time };
     if (ex.time) { o.lo = p.tlo || 30; o.hi = p.thi || 45; }
     if (sl.hiit) { o.s = S.goal === "forca" ? 6 : 8; o.lo = 20; o.hi = 30; o.rest = 40; o.hiit = true; }
     if (S.level === "ini" && sl.r === "main" && o.s > 3) o.s = o.s - 1;
+    if (sl.s) o.s = sl.s;
     // superset: só descansa depois do último exercício do bloco
-    var slots = DB.PROGRAM[letter].slots;
+    var all = slots(letter);
     if (soloToday()) { if (sl.ss) o.rest += 15; }
-    else if (sl.ss && slots[i + 1] && slots[i + 1].ss === sl.ss) o.chain = true;
+    else if (sl.ss && all[i + 1] && all[i + 1].ss === sl.ss) o.chain = true;
     return o;
   }
   function blocks(letter) {
-    var slots = DB.PROGRAM[letter].slots, out = [], cur = null;
-    slots.forEach(function (sl, i) {
+    var out = [], cur = null;
+    slots(letter).forEach(function (sl, i) {
       var ss = soloToday() ? null : (sl.ss || null);
       if (ss && cur && cur.ss === ss) { cur.items.push(i); return; }
       cur = { ss: ss, items: [i], r: sl.r };
@@ -89,7 +108,7 @@
   }
   function estMinutes(letter) {
     var t = 0;
-    DB.PROGRAM[letter].slots.forEach(function (sl, i) {
+    slots(letter).forEach(function (sl, i) {
       var p = presc(letter, i);
       t += p.s * ((p.time ? p.hi : 40) + (p.chain ? 10 : p.rest));
     });
@@ -181,7 +200,7 @@
       var dn = 0; for (var k in S.draft.ex) dn += S.draft.ex[k].filter(function (s) { return s.done; }).length;
       h += '<div class="banner"><div class="grow"><b>Treino ' + S.draft.letter + ' em andamento</b><div class="muted">' + dn + " séries feitas · começou " + fmtT((Date.now() - S.draft.start) / 1000).replace(/:\d+$/, "") + ' min atrás</div></div><button class="pill on" data-act="resume">Continuar</button></div>';
     }
-    h += '<div class="next-card"><div class="letter">' + nx + '</div><div class="grow"><div class="lbl">Próximo treino</div><div class="nm">' + W.n + '</div><div class="meta">' + W.slots.length + " exercícios · ~" + estMinutes(nx) + " min</div></div></div>";
+    h += '<div class="next-card"><div class="letter">' + nx + '</div><div class="grow"><div class="lbl">Próximo treino</div><div class="nm">' + W.n + '</div><div class="meta">' + slots(nx).length + " exercícios · ~" + estMinutes(nx) + " min</div></div></div>";
     h += '<button class="btn primary" data-act="start" data-l="' + nx + '">Começar treino ' + nx + "</button>";
     h += '<div class="stats" style="margin-top:14px">' +
       '<div class="stat"><b>' + wk + '</b><span>treinos na semana</span></div>' +
@@ -213,7 +232,9 @@
     var h = '<div class="seg">' + DB.SEQ.map(function (l) {
       return '<button data-act="letter" data-l="' + l + '" class="' + (l === L ? "on" : "") + '"><b>' + l + (l === nx ? '<i class="nx"></i>' : "") + "</b><span>" + DB.PROGRAM[l].n.split(" ")[0].replace(",", "") + "</span></button>";
     }).join("") + "</div>";
-    h += '<div class="w-head"><h2>Treino ' + L + " — " + W.n + '</h2><div class="muted">' + W.sub + " · ~" + estMinutes(L) + " min" + (L === nx ? " · <b style='color:var(--accent)'>é o de hoje</b>" : "") + "</div></div>";
+    h += '<div class="w-head row"><div class="grow"><h2>Treino ' + L + " — " + W.n + '</h2><div class="muted">' + (isCustom(L) ? "Personalizado" : W.sub) + " · ~" + estMinutes(L) + " min" + (L === nx ? " · <b style='color:var(--accent)'>é o de hoje</b>" : "") + "</div></div>" +
+      (editMode ? "" : '<button class="pill" data-act="edit">✎ Editar</button>') + "</div>";
+    if (editMode) { $("#v-treino").innerHTML = h + editorHTML(L); $$("#v-treino .fig-box[data-fig]").forEach(function (el) { Fig.mount(el, el.getAttribute("data-fig")); }); return; }
     var solo = soloToday();
     h += '<div class="card solo-card"><div class="row"><div class="grow"><b style="font-size:14px">Academia cheia? Fazer tudo separado hoje</b><div class="muted" style="font-size:12px;margin-top:2px">' +
       (solo ? "Ligado só para hoje: cada exercício tem seu próprio descanso (~10 min a mais). Amanhã volta ao normal." : "Recomendado para você: pesados sozinhos + acessórios em superset (mais calorias em menos tempo).") +
@@ -222,7 +243,7 @@
     blocks(L).forEach(function (b) {
       var cls = b.ss ? "super" : (b.r === "fin" ? "fin" : "solo");
       var lab = b.ss ? (b.items.length > 1 ? "Superset — faça um seguido do outro" : "Superset") : (b.r === "fin" ? "Finalizador" : b.r === "core" ? "Abdômen" : DB.ROLE_NAMES[b.r]);
-      if (b.ss && DB.PROGRAM[L].slots[b.items[0]].r === "fin" && b.items.every(function (i) { return DB.PROGRAM[L].slots[i].r === "fin"; })) { cls = "fin"; lab = "Finalizador em circuito"; }
+      if (b.ss && b.items.every(function (i) { return slots(L)[i].r === "fin"; })) { cls = "fin"; lab = "Finalizador em circuito"; }
       h += '<div class="block ' + cls + '"><span class="block-tag">' + lab + "</span>";
       b.items.forEach(function (i) { h += exCard(L, i, d); });
       h += "</div>";
@@ -231,6 +252,46 @@
     if (d) h += '<button class="btn ghost small" data-act="discard">Descartar treino em andamento</button>';
     $("#v-treino").innerHTML = h;
     $$("#v-treino .fig-box[data-fig]").forEach(function (el) { Fig.mount(el, el.getAttribute("data-fig")); });
+  }
+
+  var editMode = false, addGroup = "biceps";
+  var ROLE_LBL = { main: "Principal", acc: "Complementar", iso: "Isolado", core: "Abdômen", fin: "Finalizador" };
+  function editorHTML(L) {
+    var a = slots(L);
+    var h = '<div class="card tip"><div class="muted">Monte o treino do seu jeito: <b style="color:var(--ink)">↑ ↓</b> muda a ordem, <b style="color:var(--ink)">− +</b> muda o número de séries, <b style="color:var(--ink)">🔗</b> junta dois exercícios em superset. Repetições e descanso seguem o seu objetivo.</div></div>';
+    a.forEach(function (sl, i) {
+      var ex = BY[slotEx(L, i)], p = presc(L, i);
+      h += '<div class="ed-item"><div class="fig-box" data-fig="' + ex.id + '"></div><div class="grow"><b>' + ex.n + '</b><span>' + ROLE_LBL[sl.r] + " · " + DB.GROUPS[ex.g] + '</span>' +
+        '<div class="ed-ctrl"><button data-act="edsets" data-i="' + i + '" data-d="-1">−</button><span>' + p.s + ' séries</span><button data-act="edsets" data-i="' + i + '" data-d="1">+</button></div></div>' +
+        '<div class="ed-btns"><button data-act="edmove" data-i="' + i + '" data-d="-1"' + (i ? "" : " disabled") + '>↑</button><button data-act="edmove" data-i="' + i + '" data-d="1"' + (i < a.length - 1 ? "" : " disabled") + '>↓</button>' +
+        '<button data-act="swap" data-slot="' + L + i + '">⇄</button><button data-act="edrm" data-i="' + i + '" class="rm">✕</button></div></div>';
+      if (i < a.length - 1) {
+        var on = sl.ss && a[i + 1].ss === sl.ss;
+        h += '<button class="ed-link' + (on ? " on" : "") + '" data-act="edlink" data-i="' + i + '">' + (on ? "🔗 Superset com o de baixo (toque para separar)" : "＋ juntar em superset com o de baixo") + "</button>";
+      }
+    });
+    h += '<button class="btn primary" data-act="edadd">+ Adicionar exercício</button>';
+    h += '<button class="btn accent" data-act="eddone">Pronto</button>';
+    if (isCustom(L)) h += '<button class="btn ghost small" data-act="edreset">Restaurar treino ' + L + " original</button>";
+    return h;
+  }
+  function addSheet(L) {
+    var h = "<h2>Adicionar ao treino " + L + '</h2><div class="chips" style="margin-top:10px">' + Object.keys(DB.GROUPS).map(function (g) {
+      return '<button class="pill' + (g === addGroup ? " on" : "") + '" data-act="addgrp" data-g="' + g + '">' + DB.GROUPS[g] + "</button>";
+    }).join("") + '</div><div style="margin-top:12px">';
+    var used = slots(L).map(function (sl, i) { return slotEx(L, i); });
+    DB.EX.filter(function (e) { return e.g === addGroup; }).forEach(function (e) {
+      h += '<div class="alt-item" data-act="doadd" data-id="' + e.id + '"><div class="fig-box" data-fig="' + e.id + '"></div><div class="grow">' + (used.indexOf(e.id) >= 0 ? '<span class="tag">JÁ ESTÁ NO TREINO</span>' : "") + "<b>" + e.n + "</b><span>" + e.eq + "</span></div></div>";
+    });
+    h += '</div><button class="btn ghost" data-act="close">Fechar</button>';
+    openSheet(h);
+  }
+  function startEdit(L) {
+    if (S.draft && S.draft.letter === L) {
+      if (!confirm("Editar o treino descarta as séries já marcadas hoje no treino " + L + ". Continuar?")) return;
+      S.draft = null; stopTimer();
+    }
+    editMode = true; save(); renderTreino();
   }
 
   function exCard(L, i, d) {
@@ -451,8 +512,8 @@
       '<button class="opt' + (S.level === "int" ? " on" : "") + '" style="margin:0" data-act="lvl" data-k="int"><b>Intermediário</b><span>Pesos livres e mais volume</span></button></div>';
     h += '<div class="card" style="margin-top:12px"><label class="field"><span>Meta de cardio por semana</span><select id="cGoal">' + [1, 2, 3, 4, 5, 6].map(function (n) { return "<option" + (S.cardioGoal === n ? " selected" : "") + ">" + n + "</option>"; }).join("") + "</select></label>" +
       '<label class="field"><span>Tema</span><select id="thSel"><option value="auto"' + (S.theme === "auto" ? " selected" : "") + '>Automático (do celular)</option><option value="light"' + (S.theme === "light" ? " selected" : "") + '>Claro</option><option value="dark"' + (S.theme === "dark" ? " selected" : "") + ">Escuro</option></select></label></div>";
-    var nsw = Object.keys(S.swaps).length;
-    if (nsw) h += '<button class="btn ghost small" data-act="resetswaps">Desfazer ' + nsw + " troca(s) de exercício</button>";
+    var ncu = Object.keys(S.swaps).length + Object.keys(S.custom || {}).length;
+    if (ncu) h += '<button class="btn ghost small" data-act="resetswaps">Restaurar todos os treinos originais</button>';
     h += '<p class="sec-title">Sobre o peito (ginecomastia)</p><div class="card"><div class="muted">' +
       "Este programa treina peito em 3 de cada 4 treinos e combina musculação + cardio para reduzir gordura. Importante: <b style='color:var(--ink)'>não existe perda de gordura localizada</b> — o peito diminui quando o percentual de gordura do corpo todo cai, e o músculo peitoral forte melhora o contorno." +
       "<br><br>Se houver um caroço firme/emborrachado atrás do mamilo, dor ou crescimento recente, procure um <b style='color:var(--ink)'>endocrinologista</b>: ginecomastia verdadeira (glandular) não sai só com treino e tem tratamento.</div></div>";
@@ -460,7 +521,7 @@
       '<button class="btn primary small" data-act="export">Exportar backup</button>' +
       '<button class="btn ghost small" data-act="import">Importar backup</button></div>';
     h += '<button class="btn danger small" data-act="wipe">Apagar todos os dados</button>';
-    h += '<p class="muted" style="text-align:center;margin-top:18px">Meu Treino v1.1 · feito sob medida</p>';
+    h += '<p class="muted" style="text-align:center;margin-top:18px">Meu Treino v1.2 · feito sob medida</p>';
     $("#v-perfil").innerHTML = h;
     $("#cGoal").onchange = function () { S.cardioGoal = parseInt(this.value, 10); save(); };
     $("#thSel").onchange = function () { S.theme = this.value; save(); applyTheme(); };
@@ -479,7 +540,7 @@
 
   function whereUsed(id) {
     var out = [];
-    DB.SEQ.forEach(function (l) { DB.PROGRAM[l].slots.forEach(function (s, i) { if (slotEx(l, i) === id) out.push(l); }); });
+    DB.SEQ.forEach(function (l) { slots(l).forEach(function (s, i) { if (slotEx(l, i) === id) out.push(l); }); });
     return out;
   }
   function detail(id) {
@@ -521,7 +582,6 @@
       h += '<div class="alt-item" data-act="doswap" data-slot="' + slot + '" data-id="' + a.x.id + '"><div class="fig-box" data-fig="' + a.x.id + '"></div><div class="grow">' + (k < 2 ? '<span class="tag">★ RECOMENDADO</span>' : "") + "<b>" + a.x.n + "</b><span>" + a.x.eq + "</span></div></div>";
     });
     h += "</div>";
-    if (S.swaps[slot]) h += '<button class="btn ghost small" data-act="unswap" data-slot="' + slot + '">Voltar ao exercício original</button>';
     h += '<button class="btn ghost" data-act="close">Cancelar</button>';
     openSheet(h);
   }
@@ -598,15 +658,49 @@
       case "start": viewLetter = el.getAttribute("data-l"); go("treino"); break;
       case "resume": viewLetter = S.draft.letter; go("treino"); break;
       case "solo": S.soloDay = soloToday() ? null : todayKey(); save(); renderTreino(); toast(soloToday() ? "Hoje: tudo separado" : "Supersets de volta"); break;
-      case "letter": viewLetter = el.getAttribute("data-l"); renderTreino(); break;
+      case "letter": editMode = false; viewLetter = el.getAttribute("data-l"); renderTreino(); break;
       case "set": onSet(el); break;
       case "finish": finish(el.getAttribute("data-l")); break;
       case "discard": if (confirm("Descartar as séries marcadas deste treino?")) { S.draft = null; save(); stopTimer(); renderTreino(); } break;
       case "detail": detail(el.getAttribute("data-id")); break;
       case "swap": swapSheet(el.getAttribute("data-slot")); break;
-      case "doswap": S.swaps[el.getAttribute("data-slot")] = el.getAttribute("data-id"); save(); closeSheet(); renderTreino(); toast("Exercício trocado"); break;
-      case "unswap": delete S.swaps[el.getAttribute("data-slot")]; save(); closeSheet(); renderTreino(); break;
-      case "resetswaps": S.swaps = {}; save(); renderPerfil(); toast("Trocas desfeitas"); break;
+      case "doswap": {
+        var sk = el.getAttribute("data-slot"), sL = sk.charAt(0), si = parseInt(sk.slice(1), 10);
+        ensureCustom(sL)[si].ex = el.getAttribute("data-id");
+        if (S.draft && S.draft.letter === sL) delete S.draft.ex[sk];
+        save(); closeSheet(); renderTreino(); toast("Exercício trocado"); break;
+      }
+      case "resetswaps": S.swaps = {}; S.custom = {}; save(); renderPerfil(); toast("Treinos originais restaurados"); break;
+      case "edit": startEdit(viewLetter); break;
+      case "eddone": editMode = false; renderTreino(); $("#main").scrollTop = 0; toast("Treino " + viewLetter + " salvo"); break;
+      case "edsets": {
+        var ei = +el.getAttribute("data-i"), ea = ensureCustom(viewLetter);
+        ea[ei].s = Math.max(1, Math.min(8, presc(viewLetter, ei).s + (+el.getAttribute("data-d")))); save(); renderTreino(); break;
+      }
+      case "edmove": {
+        var mi = +el.getAttribute("data-i"), md = +el.getAttribute("data-d"), ma = ensureCustom(viewLetter);
+        var tmp = ma[mi]; ma[mi] = ma[mi + md]; ma[mi + md] = tmp; normalize(viewLetter); save(); renderTreino(); break;
+      }
+      case "edrm": {
+        var ri = +el.getAttribute("data-i"), ra = ensureCustom(viewLetter);
+        if (ra.length <= 1) { toast("O treino precisa de pelo menos 1 exercício"); break; }
+        if (!confirm("Remover " + BY[ra[ri].ex].n + " do treino " + viewLetter + "?")) break;
+        ra.splice(ri, 1); normalize(viewLetter); save(); renderTreino(); break;
+      }
+      case "edlink": {
+        var li = +el.getAttribute("data-i"), la = ensureCustom(viewLetter);
+        if (la[li].ss && la[li + 1].ss === la[li].ss) la[li + 1].ss = "s" + Date.now();
+        else { var id2 = la[li].ss || la[li + 1].ss || "s" + Date.now(); la[li].ss = id2; la[li + 1].ss = id2; }
+        normalize(viewLetter); save(); renderTreino(); break;
+      }
+      case "edadd": addSheet(viewLetter); break;
+      case "addgrp": addGroup = el.getAttribute("data-g"); addSheet(viewLetter); break;
+      case "doadd": {
+        var ne = BY[el.getAttribute("data-id")];
+        ensureCustom(viewLetter).push({ ex: ne.id, r: { comp: "acc", iso: "iso", core: "core", cardio: "fin" }[ne.k], ss: null });
+        save(); closeSheet(); renderTreino(); toast(ne.n + " adicionado"); setTimeout(function () { $("#main").scrollTop = 1e6; }, 50); break;
+      }
+      case "edreset": if (confirm("Voltar o treino " + viewLetter + " para o original?")) { delete S.custom[viewLetter]; save(); renderTreino(); } break;
       case "close": closeSheet(); break;
       case "cardio": cardioSheet(); break;
       case "savecardio": {
@@ -652,7 +746,7 @@
     c[inp.getAttribute("data-f")] = num(inp.value);
     save();
   });
-  $$("nav.tabs button").forEach(function (b) { b.addEventListener("click", function () { if (b.getAttribute("data-view") === "treino" && cur !== "treino") viewLetter = null; go(b.getAttribute("data-view")); }); });
+  $$("nav.tabs button").forEach(function (b) { b.addEventListener("click", function () { if (b.getAttribute("data-view") === "treino" && cur !== "treino") viewLetter = null; editMode = false; go(b.getAttribute("data-view")); }); });
   $("#goalChip").addEventListener("click", function () { go("perfil"); });
   $("#scrim").addEventListener("click", closeSheet);
   $("#tPlus").addEventListener("click", function () { tEnd += 15000; tTotal += 15; tickTimer(); });
