@@ -207,7 +207,6 @@
       '<div class="stat"><b>' + ck + "/" + S.cardioGoal + '</b><span>cardio na semana</span></div>' +
       '<div class="stat"><b>' + total + '</b><span>treinos no total</span></div></div>';
     h += '<button class="btn ghost small" data-act="cardio">+ Registrar cardio</button>';
-    h += '<p class="sec-title">Dica do professor</p><div class="card tip"><div class="muted">' + goal().tip + '</div><div class="muted" style="margin-top:8px"><b style="color:var(--ink)">Cardio:</b> ' + goal().cardio + "</div></div>";
     h += '<p class="sec-title">Histórico</p><div class="card">';
     var items = S.history.map(function (x) { return { d: x.d, w: x.w, min: x.min, n: x.n }; })
       .concat(S.cardio.map(function (c) { return { d: c.d, c: c }; }))
@@ -521,7 +520,7 @@
       '<button class="btn primary small" data-act="export">Exportar backup</button>' +
       '<button class="btn ghost small" data-act="import">Importar backup</button></div>';
     h += '<button class="btn danger small" data-act="wipe">Apagar todos os dados</button>';
-    h += '<p class="muted" style="text-align:center;margin-top:18px">Meu Treino v1.2 · feito sob medida</p>';
+    h += '<p class="muted" style="text-align:center;margin-top:18px">Meu Treino v1.3 · feito sob medida</p>';
     $("#v-perfil").innerHTML = h;
     $("#cGoal").onchange = function () { S.cardioGoal = parseInt(this.value, 10); save(); };
     $("#thSel").onchange = function () { S.theme = this.value; save(); applyTheme(); };
