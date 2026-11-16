@@ -6,7 +6,7 @@
 
   /* ---------------- Estado ---------------- */
   function defaults() {
-    return { goal: "queima", level: "ini", cardioGoal: 3, theme: "auto", history: [], logs: {}, meas: [], swaps: {}, cardio: [], draft: null, sel: null };
+    return { goal: "queima", level: "ini", cardioGoal: 3, theme: "auto", history: [], logs: {}, meas: [], swaps: {}, cardio: [], draft: null, sel: null, soloDay: null };
   }
   var S = (function () {
     try {
@@ -65,18 +65,22 @@
     if (S.level === "ini" && sl.r === "main" && o.s > 3) o.s = o.s - 1;
     // superset: só descansa depois do último exercício do bloco
     var slots = DB.PROGRAM[letter].slots;
-    if (sl.ss && slots[i + 1] && slots[i + 1].ss === sl.ss) o.chain = true;
+    if (soloToday()) { if (sl.ss) o.rest += 15; }
+    else if (sl.ss && slots[i + 1] && slots[i + 1].ss === sl.ss) o.chain = true;
     return o;
   }
   function blocks(letter) {
     var slots = DB.PROGRAM[letter].slots, out = [], cur = null;
     slots.forEach(function (sl, i) {
-      if (sl.ss && cur && cur.ss === sl.ss) { cur.items.push(i); return; }
-      cur = { ss: sl.ss || null, items: [i], r: sl.r };
+      var ss = soloToday() ? null : (sl.ss || null);
+      if (ss && cur && cur.ss === ss) { cur.items.push(i); return; }
+      cur = { ss: ss, items: [i], r: sl.r };
       out.push(cur);
     });
     return out;
   }
+  function todayKey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function soloToday() { return S.soloDay === todayKey(); }
   function nextLetter() {
     var h = S.history.filter(function (x) { return x.w; });
     if (!h.length) return "A";
@@ -210,6 +214,10 @@
       return '<button data-act="letter" data-l="' + l + '" class="' + (l === L ? "on" : "") + '"><b>' + l + (l === nx ? '<i class="nx"></i>' : "") + "</b><span>" + DB.PROGRAM[l].n.split(" ")[0].replace(",", "") + "</span></button>";
     }).join("") + "</div>";
     h += '<div class="w-head"><h2>Treino ' + L + " — " + W.n + '</h2><div class="muted">' + W.sub + " · ~" + estMinutes(L) + " min" + (L === nx ? " · <b style='color:var(--accent)'>é o de hoje</b>" : "") + "</div></div>";
+    var solo = soloToday();
+    h += '<div class="card solo-card"><div class="row"><div class="grow"><b style="font-size:14px">Academia cheia? Fazer tudo separado hoje</b><div class="muted" style="font-size:12px;margin-top:2px">' +
+      (solo ? "Ligado só para hoje: cada exercício tem seu próprio descanso (~10 min a mais). Amanhã volta ao normal." : "Recomendado para você: pesados sozinhos + acessórios em superset (mais calorias em menos tempo).") +
+      '</div></div><button class="switch' + (solo ? " on" : "") + '" data-act="solo" aria-label="Fazer tudo separado hoje"><i></i></button></div></div>';
     var d = draft(L);
     blocks(L).forEach(function (b) {
       var cls = b.ss ? "super" : (b.r === "fin" ? "fin" : "solo");
@@ -452,7 +460,7 @@
       '<button class="btn primary small" data-act="export">Exportar backup</button>' +
       '<button class="btn ghost small" data-act="import">Importar backup</button></div>';
     h += '<button class="btn danger small" data-act="wipe">Apagar todos os dados</button>';
-    h += '<p class="muted" style="text-align:center;margin-top:18px">Meu Treino v1.0 · feito sob medida</p>';
+    h += '<p class="muted" style="text-align:center;margin-top:18px">Meu Treino v1.1 · feito sob medida</p>';
     $("#v-perfil").innerHTML = h;
     $("#cGoal").onchange = function () { S.cardioGoal = parseInt(this.value, 10); save(); };
     $("#thSel").onchange = function () { S.theme = this.value; save(); applyTheme(); };
@@ -589,6 +597,7 @@
     switch (a) {
       case "start": viewLetter = el.getAttribute("data-l"); go("treino"); break;
       case "resume": viewLetter = S.draft.letter; go("treino"); break;
+      case "solo": S.soloDay = soloToday() ? null : todayKey(); save(); renderTreino(); toast(soloToday() ? "Hoje: tudo separado" : "Supersets de volta"); break;
       case "letter": viewLetter = el.getAttribute("data-l"); renderTreino(); break;
       case "set": onSet(el); break;
       case "finish": finish(el.getAttribute("data-l")); break;
